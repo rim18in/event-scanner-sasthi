@@ -1,0 +1,379 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Check-In Scanner</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* This makes everything look nice */
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 20px; 
+            background-color: #f5f5f5;
+        }
+        
+        h1 { 
+            color: #333; 
+            margin-bottom: 30px;
+        }
+        
+        #qr-reader { 
+            width: 400px; 
+            margin: 0 auto; 
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .result { 
+            margin: 20px; 
+            padding: 20px; 
+            border-radius: 8px; 
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .success { 
+            background: #d4edda; 
+            color: #155724; 
+            border: 2px solid #c3e6cb; 
+        }
+        
+        .error { 
+            background: #f8d7da; 
+            color: #721c24; 
+            border: 2px solid #f5c6cb; 
+        }
+        
+        .info { 
+            background: #d1ecf1; 
+            color: #0c5460; 
+            border: 2px solid #bee5eb; 
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎉 Event Check-In Scanner</h1>
+    
+    <!-- Statistics Display -->
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-number" id="checkedInCount">0</div>
+            <div class="stat-label">CHECKED IN</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="remainingCount">2000</div>
+            <div class="stat-label">REMAINING</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number" id="percentageCount">0%</div>
+            <div class="stat-label">COMPLETE</div>
+        </div>
+    </div>
+    
+    <!-- QR Scanner Area -->
+    <div id="qr-reader"></div>
+    
+    <!-- Results will show here -->
+    <div id="result"></div>
+
+    <script>
+        // ===== CONFIGURATION SECTION =====
+        // REPLACE THESE WITH YOUR ACTUAL VALUES:
+        
+        const API_KEY = 'fb783ae22c46d6fb4a460753fe342dfa';  // Put your API key from Step 1
+        const FORM_ID = '252096867246165';  // Put your Form ID from Step 1
+        
+        // FIELD IDs - Replace with your actual field numbers from Step 1:
+        const FIELD_IDS = {
+            fullName: '4',        // Replace 3 with your Full Name field ID
+            email: '5',           // Replace 4 with your Email field ID
+            paymentMethod: '37',   // Replace 5 with your Payment Method field ID
+            checkinStatusSasthi: '64',    // Replace 6 with your Check-in Status panchami field ID
+            numberOf: '36',   // Replace 7 with your Number of People Attending field ID
+            eventDays: '35',   // Replace 8 with your Event days you want attend field ID
+			member: '68'
+        };
+
+        // ===== SCANNER SYSTEM =====
+        
+        let isScanning = true;
+        const scannedCodes = new Set(); // Keeps track of used QR codes
+        let checkedInTotal = 0; // Counter for checked-in attendees
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            // This function runs every time a QR code is scanned
+            
+            if (!isScanning) return; // Don't scan if we're processing another
+            
+            console.log('QR Code scanned:', decodedText); // For debugging
+            
+            // Check if this QR code was already used
+            if (scannedCodes.has(decodedText)) {
+                showResult('❌ This QR Code Was Already Used!<br>Person is already checked in.', 'error');
+                return;
+            }
+            
+            // Extract the submission ID from the QR code
+            const submissionId = extractSubmissionId(decodedText);
+            
+            if (submissionId) {
+                processCheckIn(submissionId, decodedText);
+            } else {
+                showResult('❌ Invalid QR Code<br>This is not a valid event QR code.', 'error');
+            }
+        }
+        
+        function extractSubmissionId(qrData) {
+            // This function finds the submission ID in the QR code data
+            
+            console.log('Extracting ID from:', qrData); // For debugging
+            
+            // Try different patterns the QR code might have:
+            const patterns = [
+                /submission\/(\d+)/,           // Format: .../submission/123456
+                /ID:(\d+)/,                   // Format: ID:123456
+                /https:\/\/.*\/(\d+)/,        // Format: https://anything/123456
+                /^\d+$/                       // Format: Just the number 123456
+            ];
+            
+            for (let pattern of patterns) {
+                const match = qrData.match(pattern);
+                if (match) {
+                    console.log('Found submission ID:', match[1] || match[0]);
+                    return match[1] || match; // Return the number found
+                }
+            }
+            
+            console.log('No submission ID found');
+            return null;
+        }
+        
+        async function processCheckIn(submissionId, qrData) {
+            // This function handles the actual check-in process
+            
+            isScanning = false; // Stop scanning while we process
+            showResult('🔄 Processing Check-In...<br>Please wait...', 'info');
+            
+            try {
+                // Step 1: Get the person's information from Jotform
+                console.log('Getting submission data for ID:', submissionId);
+                const submissionData = await getSubmissionData(submissionId);
+
+                console.log('processCheckIn:', submissionData);
+
+                // Step 2: Check if they're already checked in
+                if (!submissionData.hasSasthi) {
+                    showResult(`⚠️ No Registration!<br><strong>${submissionData.name}</strong><br>This person has not registered for Sasthi.`, 'error');
+                    setTimeout(() => isScanning = true, 4000); // Resume scanning after 4 seconds
+                    return;
+                }
+                
+                // Step 3: Check if they're already checked in for panchami
+                if (submissionData.alreadyCheckedIn) {
+                    showResult(`⚠️ Already Checked In!<br><strong>${submissionData.name}</strong><br>This person was already checked in earlier.`, 'error');
+                    setTimeout(() => isScanning = true, 4000); // Resume scanning after 4 seconds
+                    return;
+                }
+                
+                // Step 3: Update their status to "Checked In"
+                console.log('Updating check-in status...');
+                await updateSubmissionStatus(submissionId);
+                
+                // Step 4: Mark this QR code as used
+                scannedCodes.add(qrData);
+                
+                // Step 5: Update our counter
+                checkedInTotal++;
+                updateStatistics();
+                
+                if (submissionData.paymentMethod == 'Cash  at Venue'){
+                showResult(`✅ CHECK-IN SUCCESSFUL!<br>
+                           <strong>Welcome ${submissionData.name}!</strong><br>
+                           Email: ${submissionData.email}<br>
+                           Payment: ${submissionData.paymentMethod}<br>
+                           Number of people: ${submissionData.numberOf}<br>
+                           Time: ${new Date().toLocaleTimeString()}<br>
+						   Member: ${submissionData.member}<br>
+                           <small>Total Checked In: ${checkedInTotal}</small>`, 'warning');
+			   }
+			   else
+			   {
+	
+				showResult(`✅ CHECK-IN SUCCESSFUL!<br>
+						   <strong>Welcome ${submissionData.name}!</strong><br>
+						   Email: ${submissionData.email}<br>
+						   Payment: ${submissionData.paymentMethod}<br>
+						   Number of people: ${submissionData.numberOf}<br>
+						   Time: ${new Date().toLocaleTimeString()}<br>
+						   Member: ${submissionData.member}<br>
+						   <small>Total Checked In: ${checkedInTotal}</small>`, 'success');
+				}
+                console.log('Check-in completed successfully');
+                
+            } catch (error) {
+                console.error('Check-in error:', error);
+                showResult(`❌ ERROR: ${error.message}<br>Please try again or check manually.`, 'error');
+            }
+            
+            // Resume scanning after 4 seconds
+            setTimeout(() => isScanning = true, 4000);
+        }
+        
+        async function getSubmissionData(submissionId) {
+            // This function gets the person's information from Jotform
+            
+            const url = `https://eu-api.jotform.com/submission/${submissionId}?apiKey=${API_KEY}`;
+            console.log('Fetching from:', url);
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.responseCode !== 200) {
+                throw new Error('QR Code not found - Invalid registration');
+            }
+            
+            const answers = data.content.answers;
+            console.log('Submission answers:', answers);
+
+            // Extract event days as array (normalize string or array)
+            let eventDaysRaw = answers[FIELD_IDS.eventDays]?.answer || '';
+            let eventDays = [];
+
+            if (Array.isArray(eventDaysRaw)) {
+                // Already an array from Jotform
+                eventDays = eventDaysRaw.map(day => day.trim());
+            } else if (typeof eventDaysRaw === 'string') {
+                // Comma separated string → split into array
+                eventDays = eventDaysRaw.split(',').map(day => day.trim());
+            } else {
+                eventDays = [];
+            }
+
+            // Check if Sasthi is included
+            const hasSasthi = eventDays.some(day => day.startsWith("Sasthi"));
+            
+            // Extract the information we need
+            const submissionData = {
+                name: answers[FIELD_IDS.fullName]?.answer || 'Unknown Name',
+                email: answers[FIELD_IDS.email]?.answer || 'No Email',
+                paymentMethod: answers[FIELD_IDS.paymentMethod]?.answer || 'Unknown',
+                numberOf: answers[FIELD_IDS.numberOf]?.answer || 'Unknown',
+                eventDays: Array.isArray(eventDaysRaw) ? eventDaysRaw.join(", ") : eventDaysRaw || 'Unknown',
+                alreadyCheckedIn: answers[FIELD_IDS.checkinStatusSasthi]?.answer === 'Yes',
+				member: answers[FIELD_IDS.member]?.answer || 'Unknown' ,
+                hasSasthi: hasSasthi
+            };
+            
+            console.log('Extracted data:', submissionData);
+            return submissionData;
+        }
+        
+        async function updateSubmissionStatus(submissionId) {
+            // This function marks the person as "Checked In" in Jotform
+            
+            const url = `https://eu-api.jotform.com/submission/${submissionId}?apiKey=${API_KEY}`;
+            console.log('Update url:', url);
+            // Prepare the data to update
+            const updateData = new FormData();
+            updateData.append(`submission[${FIELD_IDS.checkinStatusSasthi}]`, 'Yes');
+            updateData.append(`submission[7]`, new Date().toISOString()); // Add timestamp if you have a field for it
+			
+			for (var pair of updateData.entries()) {
+				console.log(pair[0]+ ', ' + pair[1]); 
+			}
+            
+            console.log('Updating submission with check-in status...');
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                body: updateData
+            });
+            
+            const result = await response.json();
+            console.log('Update response:', result);
+            
+            if (result.responseCode !== 200) {
+                throw new Error('Failed to update check-in status in database '+updateData);
+            }
+        }
+        
+        function updateStatistics() {
+            // This function updates the numbers at the top of the page
+            const remaining = 2000 - checkedInTotal;
+            const percentage = Math.round((checkedInTotal / 2000) * 100);
+            
+            document.getElementById('checkedInCount').textContent = checkedInTotal;
+            document.getElementById('remainingCount').textContent = remaining;
+            document.getElementById('percentageCount').textContent = percentage + '%';
+        }
+        
+        function showResult(message, type) {
+            // This function shows messages to the user
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="result ${type}">${message}</div>`;
+            
+            // Also speak the message out loud (optional)
+            if (type === 'success' && 'speechSynthesis' in window) {
+                const speech = new SpeechSynthesisUtterance('Check-in successful');
+                speechSynthesis.speak(speech);
+            }
+        }
+        
+        function onScanFailure(error) {
+            // This runs if scanning fails - we can ignore most errors
+            // console.log('Scan failed:', error);
+        }
+        
+        // ===== START THE SCANNER =====
+        
+        console.log('Starting QR Scanner...');
+        console.log('API Key:', API_KEY);
+        console.log('Form ID:', FORM_ID);
+        console.log('Field IDs:', FIELD_IDS);
+        
+        // Create and start the QR code scanner
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", 
+            { 
+                fps: 10,                    // Scans per second
+                qrbox: { width: 250, height: 250 },  // Size of scan area
+                aspectRatio: 1.0           // Square scanning area
+            }
+        );
+        
+        // Start scanning
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        
+        // Show initial message
+        showResult('📱 Point camera at QR code to scan<br>Scanner is ready!', 'info');
+        
+    </script>
+</body>
+</html>
