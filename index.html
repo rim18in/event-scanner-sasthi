@@ -82,7 +82,7 @@
     <h1>🎉 Event Check-In Scanner</h1>
     
     <!-- Statistics Display -->
-    <div class="stats">
+   <!-- <div class="stats">
         <div class="stat-item">
             <div class="stat-number" id="checkedInCount">0</div>
             <div class="stat-label">CHECKED IN</div>
@@ -95,7 +95,7 @@
             <div class="stat-number" id="percentageCount">0%</div>
             <div class="stat-label">COMPLETE</div>
         </div>
-    </div>
+    </div> -->
     
     <!-- QR Scanner Area -->
     <div id="qr-reader"></div>
@@ -116,16 +116,17 @@
             email: '5',           // Replace 4 with your Email field ID
             paymentMethod: '37',   // Replace 5 with your Payment Method field ID
             checkinStatusSasthi: '64',    // Replace 6 with your Check-in Status panchami field ID
-            numberOf: '36',   // Replace 7 with your Number of People Attending field ID
+            numberOf: '77',   // Replace 7 with your Number of People Attending field ID
             eventDays: '35',   // Replace 8 with your Event days you want attend field ID
-			member: '68'
+			member: '68',
+			student: '71'
         };
 
         // ===== SCANNER SYSTEM =====
         
         let isScanning = true;
         const scannedCodes = new Set(); // Keeps track of used QR codes
-        let checkedInTotal = 0; // Counter for checked-in attendees
+        //let checkedInTotal = 0; // Counter for checked-in attendees
         
         function onScanSuccess(decodedText, decodedResult) {
             // This function runs every time a QR code is scanned
@@ -136,7 +137,7 @@
             
             // Check if this QR code was already used
             if (scannedCodes.has(decodedText)) {
-                showResult('❌ This QR Code Was Already Used!<br>Person is already checked in.', 'error');
+                showResult('❌ This QR Code Was Already Used!<br>Person is already checked in for Sasthi.', 'error');
                 return;
             }
             
@@ -190,14 +191,14 @@
 
                 // Step 2: Check if they're already checked in
                 if (!submissionData.hasSasthi) {
-                    showResult(`⚠️ No Registration!<br><strong>${submissionData.name}</strong><br>This person has not registered for Sasthi.`, 'error');
+                    showResult(`⚠️ No Registration!<br><strong>${submissionData.name.first} ${submissionData.name.last}</strong><br>This person has not registered for Sasthi.`, 'error');
                     setTimeout(() => isScanning = true, 4000); // Resume scanning after 4 seconds
                     return;
                 }
                 
                 // Step 3: Check if they're already checked in for panchami
                 if (submissionData.alreadyCheckedIn) {
-                    showResult(`⚠️ Already Checked In!<br><strong>${submissionData.name}</strong><br>This person was already checked in earlier.`, 'error');
+                    showResult(`⚠️ Already Checked In!<br><strong>${submissionData.name.first} ${submissionData.name.last}</strong><br>This person was already checked in earlier for Sasthi.`, 'error');
                     setTimeout(() => isScanning = true, 4000); // Resume scanning after 4 seconds
                     return;
                 }
@@ -210,30 +211,31 @@
                 scannedCodes.add(qrData);
                 
                 // Step 5: Update our counter
-                checkedInTotal++;
-                updateStatistics();
+                //checkedInTotal++;
+                //updateStatistics();
                 
+				// Step 6: Show success message							   
                 if (submissionData.paymentMethod == 'Cash  at Venue'){
                 showResult(`✅ CHECK-IN SUCCESSFUL!<br>
-                           <strong>Welcome ${submissionData.name}!</strong><br>
+                           <strong>Welcome ${submissionData.name.first} ${submissionData.name.last}!</strong><br>
                            Email: ${submissionData.email}<br>
                            Payment: ${submissionData.paymentMethod}<br>
                            Number of people: ${submissionData.numberOf}<br>
                            Time: ${new Date().toLocaleTimeString()}<br>
 						   Member: ${submissionData.member}<br>
-                           <small>Total Checked In: ${checkedInTotal}</small>`, 'warning');
+						   Student: ${submissionData.student}<br>`, 'warning');
 			   }
 			   else
 			   {
 	
 				showResult(`✅ CHECK-IN SUCCESSFUL!<br>
-						   <strong>Welcome ${submissionData.name}!</strong><br>
+						   <strong>Welcome ${submissionData.name.first} ${submissionData.name.last}!</strong><br>
 						   Email: ${submissionData.email}<br>
 						   Payment: ${submissionData.paymentMethod}<br>
 						   Number of people: ${submissionData.numberOf}<br>
 						   Time: ${new Date().toLocaleTimeString()}<br>
 						   Member: ${submissionData.member}<br>
-						   <small>Total Checked In: ${checkedInTotal}</small>`, 'success');
+						   Student: ${submissionData.student}<br>`, 'success');
 				}
                 console.log('Check-in completed successfully');
                 
@@ -288,6 +290,7 @@
                 eventDays: Array.isArray(eventDaysRaw) ? eventDaysRaw.join(", ") : eventDaysRaw || 'Unknown',
                 alreadyCheckedIn: answers[FIELD_IDS.checkinStatusSasthi]?.answer === 'Yes',
 				member: answers[FIELD_IDS.member]?.answer || 'Unknown' ,
+				student: answers[FIELD_IDS.student]?.answer || 'Unknown' ,
                 hasSasthi: hasSasthi
             };
             
