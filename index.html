@@ -285,13 +285,13 @@
             const submissionData = {
                 name: answers[FIELD_IDS.fullName]?.answer || 'Unknown Name',
                 email: answers[FIELD_IDS.email]?.answer || 'No Email',
-                paymentMethod: answers[FIELD_IDS.paymentMethod]?.answer || 'Unknown',
-                numberOf: answers[FIELD_IDS.numberOf]?.answer || 'Unknown',
+                paymentMethod: answers[FIELD_IDS.paymentMethod]?.answer || 'Not required',
+                numberOf: answers[FIELD_IDS.numberOf]?.answer || 'NA',
                 eventDays: Array.isArray(eventDaysRaw) ? eventDaysRaw.join(", ") : eventDaysRaw || 'Unknown',
-                alreadyCheckedIn: answers[FIELD_IDS.checkinStatusSasthi]?.answer === 'Yes',
-				member: answers[FIELD_IDS.member]?.answer || 'Unknown' ,
-				student: answers[FIELD_IDS.student]?.answer || 'Unknown' ,
-                hasSasthi: hasSasthi
+                alreadyCheckedIn: answers[FIELD_IDS.checkinStatusAshtami]?.answer === 'Yes',
+				member: answers[FIELD_IDS.member]?.answer || 'No' ,
+				student: answers[FIELD_IDS.student]?.answer || 'No' ,
+                hasAshtami: hasAshtami
             };
             
             console.log('Extracted data:', submissionData);
@@ -380,3 +380,4 @@
     </script>
 </body>
 </html>
+
